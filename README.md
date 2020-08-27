@@ -5,5 +5,5 @@ creation contains a c program that creates a random binary matrix with the incre
 
 execute creation with "./creation > filename.in"
 
-execute CCL application with "./CCL < input/filename.in > filename.out"
+execute CCL application with "./omp-CCL < input/filename.in > filename.out"
 The application prints "Correct" if the result effectively sets correct separations between components. If errors occure, the last wrong value and its position it is displayed.
