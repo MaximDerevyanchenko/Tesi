@@ -71,7 +71,7 @@ void row_equivalences( bitmap *bm, int *eq, int from, int to ){
     int pos;
 
     for (i = from; i < to; i++){
-		//The position is increased by one, so the position 0 is reserved to the foreground value and it's easier to access the other values later.
+		//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
         eq[i * bm->w + 1] = (i * bm->w * bm->image[i][0]) + 1;
 		for (j = 1; j < bm->w; j++){
 			pos = (j + i * bm->w) + 1;
@@ -103,7 +103,7 @@ void col_equivalences( bitmap *bm, int *eq, int from, int to ){
 
     for (i = from + 1; i < to; i++){
 		for (j = 0; j < bm->w; j++){
-			//The position is increased by one, so the position 0 is reserved to the foreground value and it's easier to access the other values later.
+			//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
 			pos = (j + i * bm->w) + 1;
 			if ( bm->image[i][j] ){
 				if ( bm->image[i-1][j] ){
