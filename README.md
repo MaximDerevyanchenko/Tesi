@@ -7,3 +7,4 @@ execute creation with "./creation > filename.in"
 
 execute CCL application with "./omp-CCL < input/filename.in > filename.out"
 The application prints "Correct" if the result effectively sets correct separations between components. If errors occure, the last wrong value and its position it is displayed.
+Though there is the selection for the connectivity type, the algorithm labels only using the 4-connectivity.
