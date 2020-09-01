@@ -241,6 +241,8 @@ void label( bitmap *bm ){
 		}
 	}
 
+#pragma omp barrier
+
 #pragma omp master
 {
 	free(row);
