@@ -190,8 +190,9 @@ void label( bitmap *bm ){
 
 	int max_thread_num = omp_get_max_threads();
 	int starts[max_thread_num];
+	max_thread_num = bm->h > max_thread_num ? max_thread_num : bm->h;
 
-#pragma omp parallel default(none) shared(bm, row, col, label, starts, stderr) private(my_root, root, pos, i, j)
+#pragma omp parallel default(none) shared(bm, row, col, label, starts, stderr) private(my_root, root, pos, i, j) num_threads(max_thread_num)
 {
 
 	int my_id = omp_get_thread_num();
