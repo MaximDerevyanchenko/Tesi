@@ -72,7 +72,7 @@ void row_equivalences( bitmap *bm, int *eq, int from, int to ){
 
     for (i = from; i < to; i++){
 		//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
-        eq[i * bm->w + 1] = (i * bm->w * bm->image[i][0]) + 1;
+        eq[i * bm->w + 1] = (i * bm->w + 1) * bm->image[i][0];
 		for (j = 1; j < bm->w; j++){
 			pos = (j + i * bm->w) + 1;
 			if ( bm->image[i][j] ){
@@ -92,28 +92,45 @@ void row_equivalences( bitmap *bm, int *eq, int from, int to ){
 /**
  * Reads the bitmap and creates the equivalences found in coulmns
  */
-void col_equivalences( bitmap *bm, int *eq, int from, int to ){
+void col_equivalences( bitmap *bm, int *eq, int from, int to, int *starts, int thread_num ){
     int i, j;
     int pos;
+	int flag = 0;
+	int special_row = 0;
+	int count = 0;
 
-	//Initialize the first
-	for ( j = 0; j < bm->w && from == 0; j++ ){
-		eq[j + 1] = (j * bm->image[0][j]) + 1;
+	for( count = 0; count < thread_num; count++ ){
+		if (starts[count] >= from){
+			special_row = starts[count];
+			count++;
+			break;
+		}
 	}
 
-    for (i = from + 1; i < to; i++){
+    for (i = from; i < to; i++){
 		for (j = 0; j < bm->w; j++){
-			//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
-			pos = (j + i * bm->w) + 1;
-			if ( bm->image[i][j] ){
-				if ( bm->image[i-1][j] ){
-					eq[pos] = pos-(bm->w);
-				} else {
-					eq[pos] = pos;
-				}
+			
+			if ( i == special_row ){
+				eq[i * bm->w + j + 1] = (i * bm->w + j + 1) * bm->image[i][j];
+				flag = 1;
 			} else {
-				eq[pos] = 0;
+				//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
+				pos = (j + i * bm->w) + 1;
+				if ( bm->image[i][j] ){
+					if ( bm->image[i-1][j] ){
+						eq[pos] = pos-(bm->w);
+					} else {
+						eq[pos] = pos;
+					}
+				} else {
+					eq[pos] = 0;
+				}
 			}
+		}
+		if (flag && count < thread_num){
+			special_row = starts[count];
+			count++;
+			flag = 0;
 		}
 	}
 }
@@ -161,13 +178,11 @@ void update_label( bitmap *bm, int root_to_update, int root_to_set, int *labels 
 	while ( root_to_update != labels[root_to_update] && root_to_set != root_to_update ){
 		root_to_update = labels[root_to_update];
 	}
-#pragma omp critical
-{
+
 	is_acyclic = check_cycles( labels, root_to_update, root_to_set );
 	if ( labels[root_to_set] != root_to_update && root_to_update != root_to_set && is_acyclic){
 		labels[root_to_update] = root_to_set;
 	}
-}
 }
 
 /**
@@ -194,12 +209,19 @@ void label( bitmap *bm ){
 
 #pragma omp parallel default(none) shared(bm, row, col, label, starts, stderr) private(my_root, root, pos, i, j) num_threads(max_thread_num)
 {
-
 	int my_id = omp_get_thread_num();
 	int my_group = my_id % 2;
+	int my_group_id = my_id / 2;
     int thread_num = omp_get_num_threads();
+	int my_group_size = thread_num / 2;
+	int my_group_start;
+	int my_group_end;
 	int my_start;
 	int my_end;
+
+	if (thread_num % 2 == 1 && my_group == 1){
+		my_group_size++;
+	}
 
 	/**
 	 * Dividing the matrix based on the columns and every thread executes the CCL algorithm on its section.
@@ -211,16 +233,20 @@ void label( bitmap *bm ){
 	my_end = bm->h * (my_id + 1) / thread_num;
 	
 	starts[my_id] = my_start;
+	
+#pragma omp barrier
 
 	if ( thread_num > 1 ){
+		my_group_start = bm->h * my_group_id / my_group_size;
+		my_group_end = bm->h * (my_group_id + 1) / my_group_size;
 		if ( my_group == 0 ){
-			row_equivalences(bm, row, my_start, my_end);
+			row_equivalences(bm, row, my_group_start, my_group_end);
 		} else {
-			col_equivalences(bm, col, my_start, my_end);
+			col_equivalences(bm, col, my_group_start, my_group_end, starts, thread_num);
 		}
 	} else {
 		row_equivalences(bm, row, my_start, my_end);
-		col_equivalences(bm, col, my_start, my_end);
+		col_equivalences(bm, col, my_start, my_end, starts, thread_num);
 	}
 
 #pragma omp barrier
@@ -243,7 +269,6 @@ void label( bitmap *bm ){
 	}
 
 #pragma omp barrier
-
 #pragma omp master
 {
 	free(row);
@@ -267,6 +292,8 @@ void label( bitmap *bm ){
 	 */
 	for (i = my_start + 1; i < my_end; i++){
 		for (j = 1; j < bm->w; j++){
+			if (my_id == 11){
+			}
 			if ( bm->image[i][j] ){
 				pos = (j + i * bm->w) + 1;
 				my_root = label[pos];
@@ -288,11 +315,14 @@ void label( bitmap *bm ){
 #pragma omp for
 		for ( j = 0; j < bm->w; j++ ){
 			if ( bm->image[starts[i]][j] && starts[i] > 0 ){
-				pos = (j + i * bm->w) + 1;
+				pos = (j + starts[i] * bm->w) + 1;
 				my_root = label[pos];
 				if ( bm->image[starts[i]][j] && bm->image[starts[i] - 1][j] ){
 					root = label[pos - bm->w];
+					#pragma omp critical
+					{
 					update_label(bm, my_root, root, label);
+					}
 				}
 			}
 		}
@@ -342,6 +372,12 @@ int main( void )
 			if ( i && j ){
 				//Checking if the result provided by the algorithm is correct
 				if ( bm.result[i][j] ){
+					if ( (bm.image[i][j] == 1 && bm.result[i][j] == 0) || (bm.image[i][j] == 0 && bm.result[i][j] != 0) ){
+						x = j;
+						y = i;
+						val = bm.result[i][j];
+						isCorrect = 0;
+					}
 					if ( bm.result[i-1][j] && bm.result[i-1][j] != bm.result[i][j]){
 						x = j;
 						y = i;
