@@ -159,18 +159,19 @@ __global__ void merge( int *input, int *result, int *row, int *col, int *label, 
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	//The position is increased by one, so the position 0 is reserved to the background value and it's easier to access the other values later.
     int pos = (j + i * w) + 1;
-
-	label[pos] = 0;
-	if ( input[pos - 1] ){
-		if ( col[pos] == pos && row[pos] == pos ){
-			label[pos] = pos;
-		} else if ( col[pos] && col[pos] != pos){
-			label[pos] = col[pos];
-		} else if ( row[pos] && row[pos] != pos ){
-			label[pos] = row[pos];
+	if ( i < h && j < w ){
+		label[pos] = 0;
+		if ( input[pos - 1] ){
+			if ( col[pos] == pos && row[pos] == pos ){
+				label[pos] = pos;
+			} else if ( col[pos] && col[pos] != pos){
+				label[pos] = col[pos];
+			} else if ( row[pos] && row[pos] != pos ){
+				label[pos] = row[pos];
+			}
+		} else {
+			result[pos - 1] = 0;
 		}
-	} else {
-		result[pos - 1] = 0;
 	}
 }
 
@@ -333,7 +334,13 @@ int main( void )
 			printf("%9d ", bm.result[pos]);
 			if ( i && j ){
 				//Checking if the result provided by the algorithm is correct
-				if ( bm.result[pos] ){
+				if ( bm.image[pos] ){
+					if ( (bm.image[pos] == 1 && bm.result[pos] == 0) || (bm.image[pos] == 0 && bm.result[pos] != 0) ){
+						x = j;
+						y = i;
+						val = bm.result[pos];
+						isCorrect = 0;
+					}
 					if ( bm.result[left] && bm.result[left] != bm.result[pos]){
 						x = j;
 						y = i;

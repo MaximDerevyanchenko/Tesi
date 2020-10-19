@@ -371,7 +371,7 @@ int main( void )
 			printf("%9d ", bm.result[i][j]);
 			if ( i && j ){
 				//Checking if the result provided by the algorithm is correct
-				if ( bm.result[i][j] ){
+				if ( bm.image[i][j] ){
 					if ( (bm.image[i][j] == 1 && bm.result[i][j] == 0) || (bm.image[i][j] == 0 && bm.result[i][j] != 0) ){
 						x = j;
 						y = i;
